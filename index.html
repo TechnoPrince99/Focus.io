@@ -1,0 +1,770 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>V – 1.0 Focus Timer</title>
+  <style>
+    :root{
+      --bg:#202020;          /* space grey */
+      --panel:#dadada;
+      --text:#ffffff;
+      --muted:rgba(255,255,255,.72);
+      --shadow:0 20px 70px rgba(0,0,0,.35);
+      --radius:26px;
+
+      /* accents */
+      --purple:#804DD8;      /* apple purple */
+      --green:#34C759;       /* apple green */
+      --red:#F43639;         /* apple red */
+      --blue:#2D9AEA;        /* apple blue */
+      --jet:#0b0b0e;         /* jet black */
+    }
+
+    *{box-sizing:border-box}
+    html,body{
+      margin:0;
+      font-family:"Helvetica Neue", Helvetica, Arial, system-ui;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      background:var(--bg);
+      color:var(--text);
+      display:flex;
+      justify-content:center;
+      align-items:stretch;
+      padding:12px;
+      overflow:hidden;
+    }
+
+    @supports (padding:max(0px)){
+      body{
+        padding:
+          max(12px, env(safe-area-inset-top))
+          max(12px, env(safe-area-inset-right))
+          max(12px, env(safe-area-inset-bottom))
+          max(12px, env(safe-area-inset-left));
+      }
+    }
+
+    .app{
+      width:min(520px, calc(100vw - 24px));
+      height:calc(100dvh - 24px);
+      max-height:calc(100vh - 24px);
+      border-radius:var(--radius);
+      overflow:hidden;
+      box-shadow:var(--shadow);
+      border:1px solid rgba(255,255,255,.06);
+      background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      display:flex;
+      flex-direction:column;
+    }
+
+    /* top bar (spotify-ish) */
+    .topbar{
+      height:52px;
+      background:rgba(10,10,12,.88);
+      display:flex;
+      align-items:center;
+      padding:0 14px;
+      gap:10px;
+      user-select:none;
+      border-bottom:1px solid rgba(255,255,255,.06);
+    }
+    .dot{width:12px;height:12px;border-radius:50%}
+    .r{background:#ff5f57}
+    .y{background:#febc2e}
+    .g{background:#28c840}
+    .title{
+      margin-left:8px;
+      color:rgba(255,255,255,.7);
+      font-weight:600;
+      letter-spacing:.2px;
+      font-size:13px;
+    }
+
+    /* pages */
+    .stage{flex:1; min-height:0; position:relative;}
+    .page{
+      position:absolute;
+      inset:0;
+      padding:18px;
+      display:none;
+      overflow-y:auto;
+      -webkit-overflow-scrolling:touch;
+    }
+    .page.active{display:flex; animation:fadeIn .35s ease;}
+    @keyframes fadeIn{from{opacity:0; transform:translateY(8px);}to{opacity:1; transform:translateY(0);}}
+
+    /* cards */
+    .card{
+      width:100%;
+      min-height:100%;
+      border-radius:22px;
+      padding:20px;
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.06);
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+      align-items:center;
+      text-align:center;
+    }
+
+    /* keep everything centered */
+    .card{align-items:center; text-align:center;}
+    #home .card{justify-content:flex-start; padding-top:28px;}
+    #home .sub{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.45;
+      margin-top:-4px;
+      max-width:360px;
+      text-align:center;
+    }
+
+    .logo{
+      font-size:30px;
+      font-style:italic;
+      font-weight:700;
+      letter-spacing:-.6px;
+      color:rgba(255,255,255,.94);
+      margin-top:10px;
+      margin-bottom:8px;
+    }
+    #focus .card, #break .card, #emergency .card{justify-content:center;}
+    #focus .bottomBar, #break .bottomBar, #emergency .bottomBar{width:100%; max-width:360px; align-self:center;}
+
+    .timerWrap{
+      margin-top:6px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex:1;
+      min-height:300px;
+      width:100%;
+    }
+
+    h1{
+      margin:0;
+      font-size:22px;
+      letter-spacing:-.3px;
+      font-weight:600;
+      color:var(--text);
+    }
+    .sub{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.45;
+      margin-top:-4px;
+    }
+
+    /* buttons */
+    .btn{
+      border:none;
+      border-radius:999px;
+      padding:14px 16px;
+      font-weight:600;
+      font-size:15px;
+      cursor:pointer;
+      transition:transform .15s ease, filter .15s ease;
+      color:#fff;
+      width:100%;
+      letter-spacing:.1px;
+    }
+    .btn:hover{filter:brightness(1.03)}
+    .btn:active{transform:scale(.98)}
+
+    .btnRow{display:flex; flex-direction:column; gap:12px; margin-top:10px; width:100%; max-width:360px;}
+    .btnPurple{background:linear-gradient(135deg, color-mix(in oklab, var(--purple) 88%, #ffffff 12%), var(--purple));}
+    .btnRed{background:linear-gradient(135deg, color-mix(in oklab, var(--red) 88%, #ffffff 12%), var(--red));}
+    .btnBlue{background:linear-gradient(135deg, color-mix(in oklab, var(--blue) 88%, #ffffff 12%), var(--blue));}
+    .btnJet{background:linear-gradient(135deg, rgba(11,11,14,.96), rgba(11,11,14,.82)); border:1px solid rgba(255,255,255,.14);}
+    .btnRed{background:linear-gradient(135deg, rgba(255,59,48,.95), rgba(255,59,48,.78));}
+    .btnBlue{background:linear-gradient(135deg, rgba(10,132,255,.95), rgba(10,132,255,.78));}
+    .btnJet{background:linear-gradient(135deg, rgba(11,11,14,.95), rgba(11,11,14,.78)); border:1px solid rgba(255,255,255,.12);}
+
+    .btnSmall{
+      padding:12px 14px;
+      font-size:14px;
+      font-weight:600;
+    }
+
+    /* timer ring */
+    .timerWrap{
+      margin-top:8px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex:1;
+      min-height:320px;
+      width:100%;
+    }
+    .ring{
+      width:min(320px, 82vw);
+      max-width:340px;
+      aspect-ratio:1/1;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      position:relative;
+    }
+    svg{overflow:visible}
+    .time{
+      position:absolute;
+      text-align:center;
+      font-weight:650;
+      letter-spacing:-.8px;
+      font-size:52px;
+      line-height:1;
+    }
+      letter-spacing:-.8px;
+      font-size:52px;
+      line-height:1;
+    }
+    .phase{
+      position:absolute;
+      transform:translateY(58px);
+      font-size:14px;
+      font-weight:600;
+      color:rgba(255,255,255,.75);
+      letter-spacing:.2px;
+    }
+
+    .affirm{
+      text-align:center;
+      color:rgba(255,255,255,.92);
+      font-weight:600;
+      font-size:14.5px;
+      line-height:1.4;
+      min-height:44px;
+      opacity:0;
+      transition:opacity 400ms ease;
+      max-width:360px;
+    }
+    .affirm.show{opacity:1;}
+
+    .bottomBar{
+      margin-top:auto;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      padding-top:4px;
+    }
+
+    /* helper */
+    .spacer{height:6px}
+
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="topbar">
+      <div class="dot r" aria-hidden="true"></div>
+      <div class="dot y" aria-hidden="true"></div>
+      <div class="dot g" aria-hidden="true"></div>
+      <div class="title">V – 1.0 • Focus</div>
+    </div>
+
+    <div class="stage">
+      <!-- PAGE: HOME -->
+      <div class="page active" id="home">
+        <div class="card">
+          <div class="logo" aria-label="Focus.io">Focus.io</div>
+          <h1>Choose your session</h1>
+          <div class="sub">Pick a focus block. No clutter. Just lock in.</div>
+
+          <div class="btnRow">
+            <button class="btn btnPurple" data-focus="25" data-break="5">25 min + 5 min break 🌱</button>
+            <button class="btn btnPurple" data-focus="50" data-break="10">50 min + 10 min break 🚀</button>
+            <button class="btn btnPurple" data-focus="90" data-break="15">90 min + 15 min break 🏆</button>
+          </div>
+
+          <div class="spacer"></div>
+          <div class="sub" style="opacity:.85">Tip: The ring fills during focus, and empties during breaks.</div>
+        </div>
+      </div>
+
+      <!-- PAGE: FOCUS -->
+      <div class="page" id="focus">
+        <div class="card">
+          <h1 id="focusTitle">Focus</h1>
+
+          <div class="timerWrap">
+            <div class="ring">
+              <svg width="320" height="320" viewBox="0 0 320 320" aria-hidden="true">
+                <defs>
+                  <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="3" result="blur"/>
+                    <feMerge>
+                      <feMergeNode in="blur"/>
+                      <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                  </filter>
+                </defs>
+                <circle cx="160" cy="160" r="132" stroke="rgba(255,255,255,.10)" stroke-width="18" fill="none" />
+                <circle id="ringFocus" cx="160" cy="160" r="132" stroke="var(--green)" stroke-width="18" fill="none" stroke-linecap="round" transform="rotate(-90 160 160)" filter="url(#softGlow)" />
+              </svg>
+              <div class="time" id="focusTime">00:00</div>
+              <div class="phase">STUDY</div>
+            </div>
+          </div>
+
+          <div class="affirm" id="focusAffirm"></div>
+
+          <div class="bottomBar">
+            <button class="btn btnRed" id="breakSessionBtn">Break Session ⛔</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE: EMERGENCY -->
+      <div class="page" id="emergency">
+        <div class="card">
+          <h1>Reset</h1>
+          <div class="sub">Pause. Breathe. Decide.</div>
+
+          <div class="timerWrap">
+            <div class="ring">
+              <svg width="320" height="320" viewBox="0 0 320 320" aria-hidden="true">
+                <circle cx="160" cy="160" r="132" stroke="rgba(255,255,255,.10)" stroke-width="18" fill="none" />
+                <circle id="ringEmergency" cx="160" cy="160" r="132" stroke="var(--red)" stroke-width="18" fill="none" stroke-linecap="round" transform="rotate(-90 160 160)" />
+              </svg>
+              <div class="time" id="emergencyTime">01:00</div>
+              <div class="phase">PAUSE</div>
+            </div>
+          </div>
+
+          <div class="affirm show" id="emergencyAffirm">Pause. Breathe. Reset.</div>
+
+          <div class="bottomBar">
+            <button class="btn btnJet" id="continueBtn">Continue Session</button>
+            <button class="btn btnJet btnSmall" id="endBtn">End Session</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE: BREAK -->
+      <div class="page" id="break">
+        <div class="card">
+          <h1>Break</h1>
+          <div class="sub">You earned it. Recharge properly.</div>
+
+          <div class="timerWrap">
+            <div class="ring">
+              <svg width="320" height="320" viewBox="0 0 320 320" aria-hidden="true">
+                <defs>
+                  <filter id="softGlow2" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="3" result="blur"/>
+                    <feMerge>
+                      <feMergeNode in="blur"/>
+                      <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                  </filter>
+                </defs>
+                <circle cx="160" cy="160" r="132" stroke="rgba(255,255,255,.10)" stroke-width="18" fill="none" />
+                <circle id="ringBreak" cx="160" cy="160" r="132" stroke="var(--blue)" stroke-width="18" fill="none" stroke-linecap="round" transform="rotate(-90 160 160)" filter="url(#softGlow2)" />
+              </svg>
+              <div class="time" id="breakTime">00:00</div>
+              <div class="phase">BREAK</div>
+            </div>
+          </div>
+
+          <div class="affirm" id="breakAffirm"></div>
+
+          <div class="bottomBar">
+            <button class="btn btnBlue" id="skipBreakBtn">Skip Break ➜</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE: CONGRATS -->
+      <div class="page" id="done">
+        <div class="card" style="justify-content:center; align-items:center; text-align:center;">
+          <h1 id="doneTitle">Nice work.</h1>
+          <div class="sub" id="doneSub">Back to home.</div>
+          <div class="btnRow" style="margin-top:10px; width:100%; max-width:360px;">
+            <button class="btn btnPurple" id="backHomeBtn">Back Home</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+(() => {
+  // ----- State -----
+  const pages = {
+    home: document.getElementById('home'),
+    focus: document.getElementById('focus'),
+    emergency: document.getElementById('emergency'),
+    break: document.getElementById('break'),
+    done: document.getElementById('done'),
+  };
+
+  const focusTimeEl = document.getElementById('focusTime');
+  const breakTimeEl = document.getElementById('breakTime');
+  const emergencyTimeEl = document.getElementById('emergencyTime');
+
+  const focusAffirmEl = document.getElementById('focusAffirm');
+  const breakAffirmEl = document.getElementById('breakAffirm');
+
+  const ringFocus = document.getElementById('ringFocus');
+  const ringBreak = document.getElementById('ringBreak');
+  const ringEmergency = document.getElementById('ringEmergency');
+
+  const breakSessionBtn = document.getElementById('breakSessionBtn');
+  const continueBtn = document.getElementById('continueBtn');
+  const endBtn = document.getElementById('endBtn');
+  const skipBreakBtn = document.getElementById('skipBreakBtn');
+  const backHomeBtn = document.getElementById('backHomeBtn');
+
+  const doneTitle = document.getElementById('doneTitle');
+  const doneSub = document.getElementById('doneSub');
+
+  // Ring geometry
+  const R = 132;
+  const C = 2 * Math.PI * R;
+  [ringFocus, ringBreak, ringEmergency].forEach(c => {
+    c.style.strokeDasharray = `${C}`;
+    c.style.strokeDashoffset = `${C}`; // default hidden
+  });
+
+  // Timers
+  let mode = 'idle'; // 'focus' | 'break' | 'emergency'
+  let focusTotalMs = 0;
+  let breakTotalMs = 0;
+  let remainingMs = 0;
+  let pausedFocusMs = 0;
+
+  let tickTimer = null;
+  let emergencyTimer = null;
+
+  // ----- Affirmations -----
+  const affirmStart25 = [
+    "Nice and easy. Let’s start small 🌱",
+    "25 minutes. Just show up — that’s enough.",
+    "One session. One win.",
+    "Soft focus. Strong results.",
+    "Lock in for a bit. You’ve got this 💛",
+  ];
+  const affirmStart50 = [
+    "That’s real discipline. Proud of you already 🚀",
+    "50 minutes? That’s strong focus.",
+    "This is how top students are built.",
+    "You’re doing what most people won’t.",
+    "Keep going — you’re becoming unstoppable.",
+  ];
+  const affirmStart90 = [
+    "Impressive stuff. This is championship focus 🏆",
+    "90 minutes? You’re genuinely different.",
+    "That’s not motivation — that’s discipline.",
+    "Future you is going to thank you for this.",
+    "This is what greatness looks like.",
+  ];
+
+  const affirmBreak = [
+    "You earned this. Rest a little 🫶",
+    "Good work. Let your brain breathe.",
+    "Recharge. Come back sharper.",
+    "Breaks are part of progress.",
+    "Proud of you. Now pause.",
+  ];
+
+  const affirmSkip = [
+    "Straight back in? You’re insane 😭🔥",
+    "Okay focus monster… respect.",
+    "Break skipped. Locked back in.",
+    "That’s discipline. Let’s go.",
+    "Back to work. Main character mode.",
+  ];
+
+  const affirmContinue = [
+    "Good choice. Back into it.",
+    "That’s resilience.",
+    "Locked in again. Proud of you.",
+    "Let’s finish strong.",
+    "You didn’t stop — you reset.",
+  ];
+
+  const affirmComplete = [
+    "Session complete. That was beautiful work.",
+    "You just did what most people avoid.",
+    "Progress made. Rest earned.",
+    "Another win stacked.",
+    "That was elite. Seriously.",
+  ];
+
+  function pick(arr){
+    return arr[Math.floor(Math.random()*arr.length)];
+  }
+
+  // ----- Page nav -----
+  function show(id){
+    Object.values(pages).forEach(p => p.classList.remove('active'));
+    pages[id].classList.add('active');
+  }
+
+  // ----- Time utils -----
+  function fmt(ms){
+    const s = Math.max(0, Math.ceil(ms/1000));
+    const m = Math.floor(s/60);
+    const r = s % 60;
+    return `${String(m).padStart(2,'0')}:${String(r).padStart(2,'0')}`;
+  }
+
+  // ----- Ring drawing -----
+  // focus: fills clockwise => offset decreases from C to 0
+  function setRingFill(circle, progress01){
+    const p = Math.min(1, Math.max(0, progress01));
+    circle.style.strokeDashoffset = `${C * (1 - p)}`;
+  }
+  // break/emergency: empties clockwise => offset increases from 0 to C
+  function setRingEmpty(circle, progress01){
+    const p = Math.min(1, Math.max(0, progress01));
+    circle.style.strokeDashoffset = `${C * p}`;
+  }
+
+  // ----- Affirmation timing -----
+  // Study: show 20–30s, fade out over last 5s
+  function showStudyAffirm(text){
+    focusAffirmEl.textContent = text;
+    focusAffirmEl.classList.add('show');
+
+    const stayMs = 20000 + Math.floor(Math.random()*10001); // 20–30s
+    const fadeStart = Math.max(0, stayMs - 5000);
+
+    setTimeout(() => {
+      focusAffirmEl.classList.remove('show');
+    }, fadeStart);
+
+    setTimeout(() => {
+      focusAffirmEl.textContent = "";
+    }, stayMs);
+  }
+
+  // Break/skip/other: stay 9s, fade in 4s after
+  function showShortAffirm(el, text){
+    el.textContent = text;
+    el.classList.add('show');
+    setTimeout(() => {
+      el.classList.remove('show');
+    }, 9000);
+    setTimeout(() => {
+      el.textContent = "";
+    }, 13000);
+  }
+
+  // ----- Timer engine -----
+  function clearTimers(){
+    if(tickTimer){ clearInterval(tickTimer); tickTimer = null; }
+    if(emergencyTimer){ clearInterval(emergencyTimer); emergencyTimer = null; }
+  }
+
+  function startFocus(focusMin, breakMin){
+    clearTimers();
+    mode = 'focus';
+
+    focusTotalMs = focusMin * 60 * 1000;
+    breakTotalMs = breakMin * 60 * 1000;
+    remainingMs = focusTotalMs;
+
+    // init UI
+    focusTimeEl.textContent = fmt(remainingMs);
+    setRingFill(ringFocus, 0);
+
+    // affirmation
+    let msg;
+    if(focusMin === 25) msg = pick(affirmStart25);
+    else if(focusMin === 50) msg = pick(affirmStart50);
+    else msg = pick(affirmStart90);
+    showStudyAffirm(msg);
+
+    show('focus');
+
+    const t0 = Date.now();
+    let last = t0;
+
+    tickTimer = setInterval(() => {
+      const now = Date.now();
+      const dt = now - last;
+      last = now;
+
+      remainingMs -= dt;
+      const elapsed = focusTotalMs - remainingMs;
+      const progress = elapsed / focusTotalMs;
+
+      focusTimeEl.textContent = fmt(remainingMs);
+      setRingFill(ringFocus, progress);
+
+      if(remainingMs <= 0){
+        clearInterval(tickTimer);
+        tickTimer = null;
+        startBreak();
+      }
+    }, 120);
+  }
+
+  function startBreak(){
+    clearTimers();
+    mode = 'break';
+    remainingMs = breakTotalMs;
+
+    breakTimeEl.textContent = fmt(remainingMs);
+    // start full ring, then empty clockwise
+    setRingEmpty(ringBreak, 0);
+
+    showShortAffirm(breakAffirmEl, pick(affirmBreak));
+    show('break');
+
+    let last = Date.now();
+    tickTimer = setInterval(() => {
+      const now = Date.now();
+      const dt = now - last;
+      last = now;
+
+      remainingMs -= dt;
+      const elapsed = breakTotalMs - remainingMs;
+      const progress = elapsed / breakTotalMs;
+
+      breakTimeEl.textContent = fmt(remainingMs);
+      setRingEmpty(ringBreak, progress);
+
+      if(remainingMs <= 0){
+        clearInterval(tickTimer);
+        tickTimer = null;
+        finishCycle(false);
+      }
+    }, 120);
+  }
+
+  function startEmergencyPause(){
+    if(mode !== 'focus') return;
+
+    // pause focus
+    clearTimers();
+    pausedFocusMs = remainingMs;
+    mode = 'emergency';
+
+    let emTotal = 60 * 1000;
+    let emRemain = emTotal;
+    emergencyTimeEl.textContent = fmt(emRemain);
+    // emergency empties clockwise (start full => progress 0)
+    setRingEmpty(ringEmergency, 0);
+
+    show('emergency');
+
+    let last = Date.now();
+    emergencyTimer = setInterval(() => {
+      const now = Date.now();
+      const dt = now - last;
+      last = now;
+
+      emRemain -= dt;
+      const elapsed = emTotal - emRemain;
+      const progress = elapsed / emTotal;
+
+      emergencyTimeEl.textContent = fmt(emRemain);
+      setRingEmpty(ringEmergency, progress);
+
+      if(emRemain <= 0){
+        clearInterval(emergencyTimer);
+        emergencyTimer = null;
+        // timeout -> home
+        goHome();
+      }
+    }, 120);
+  }
+
+  function resumeFocus(){
+    if(mode !== 'emergency') return;
+    clearTimers();
+    mode = 'focus';
+
+    remainingMs = pausedFocusMs;
+    focusTimeEl.textContent = fmt(remainingMs);
+
+    // compute progress based on remaining
+    const elapsed = focusTotalMs - remainingMs;
+    setRingFill(ringFocus, elapsed / focusTotalMs);
+
+    showStudyAffirm(pick(affirmContinue));
+    show('focus');
+
+    let last = Date.now();
+    tickTimer = setInterval(() => {
+      const now = Date.now();
+      const dt = now - last;
+      last = now;
+
+      remainingMs -= dt;
+      const elapsed2 = focusTotalMs - remainingMs;
+      const progress = elapsed2 / focusTotalMs;
+
+      focusTimeEl.textContent = fmt(remainingMs);
+      setRingFill(ringFocus, progress);
+
+      if(remainingMs <= 0){
+        clearInterval(tickTimer);
+        tickTimer = null;
+        startBreak();
+      }
+    }, 120);
+  }
+
+  function finishCycle(skipped){
+    clearTimers();
+    mode = 'idle';
+
+    doneTitle.textContent = skipped ? pick(affirmSkip) : pick(affirmComplete);
+    doneSub.textContent = "Back to home.";
+    show('done');
+  }
+
+  function goHome(){
+    clearTimers();
+    mode = 'idle';
+    // reset rings
+    ringFocus.style.strokeDashoffset = `${C}`;
+    ringBreak.style.strokeDashoffset = `${C}`;
+    ringEmergency.style.strokeDashoffset = `${C}`;
+
+    // clear affirmations
+    focusAffirmEl.textContent = "";
+    focusAffirmEl.classList.remove('show');
+    breakAffirmEl.textContent = "";
+    breakAffirmEl.classList.remove('show');
+
+    show('home');
+  }
+
+  // ----- Events -----
+  document.querySelectorAll('#home button[data-focus]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const f = Number(btn.dataset.focus);
+      const b = Number(btn.dataset.break);
+      startFocus(f, b);
+    });
+  });
+
+  breakSessionBtn.addEventListener('click', startEmergencyPause);
+  continueBtn.addEventListener('click', () => {
+    showStudyAffirm(pick(affirmContinue));
+    resumeFocus();
+  });
+  endBtn.addEventListener('click', goHome);
+
+  skipBreakBtn.addEventListener('click', () => {
+    // show congrats and go home
+    finishCycle(true);
+  });
+
+  backHomeBtn.addEventListener('click', goHome);
+
+  // ----- Basic sanity checks -----
+  console.assert(!!pages.home && !!pages.focus && !!pages.break && !!pages.emergency, 'pages exist');
+  console.assert(typeof startFocus === 'function', 'startFocus exists');
+})();
+</script>
+</body>
+</html>
